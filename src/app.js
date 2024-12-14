@@ -1,17 +1,24 @@
 const express = require("express");
-const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
+
 const app = express();
 
 const api = require("./routes/index");
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
 
-// app.get('/', (req, res) => {
-//   res.send('hi');
-// });
+app.use(
+    cors({
+        origin: process.env.CORS_ORIGIN, // need to learn
+        credentials: true // need to learn
+    })
+);
+
+app.use(express.json({ limit: "16kb" }))
+app.use(express.urlencoded({ extended: true, limit: "16kb" }))
+app.use(express.static("public"));
+app.use(cookieParser());
 
 app.use("/api/v1", api);
-// app.use('/api',...);
 
-module.exports = app;
+module.exports = { app };
