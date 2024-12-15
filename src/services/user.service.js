@@ -1,15 +1,11 @@
 const { User } = require("../models/user.model");
-const bcrypt = require("bcrypt");
 
 const createUser = async (name, email, password) => {
   try {
-    const saltRounds = parseInt(process.env.SALT_ROUNDS);
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
     const user = new User({
       name,
       email,
-      password: hashedPassword,
+      password,
     });
 
     return await user.save();
