@@ -5,10 +5,11 @@ const {
   loginUser,
   logoutUser,
 } = require("../controllers/user.controller");
+
 const { verifyJWT } = require("../middlewares/auth.middleware");
 
-// router.post("/registerUser", registerUser);
-// route.post("/login", loginUser);
-// route.post("/logout", verifyJWT, logoutUser);
+router.post("/registerUser", registerUser);
+router.post("/login", loginUser);
+router.post("/logout", verifyJWT, logoutUser);
 
 module.exports = router;
