@@ -19,6 +19,11 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }))
 app.use(express.static("public"));
 app.use(cookieParser());
 
+app.use((err,req,res,next)=>{
+    // console.log(err);
+    res.status(err.status || 500).json({ error: err.message });
+});
+
 app.use("/api/v1", api);
 
 module.exports = { app };
