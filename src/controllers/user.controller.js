@@ -117,6 +117,7 @@ const logoutUser = async (req, res, next) => {
         new: true,
       }
     );
+
     const options = {
       httpOnly: true,
       secure: true,
@@ -173,7 +174,7 @@ const refreshAccessToken = async (req, res, next) => {
           200,
           {
             accessToken,
-            refreshToken: newRefreshToken,
+            refreshToken: newRefreshToken,a
           },
           "Access Token refreshed Successfully"
         )
@@ -183,4 +184,52 @@ const refreshAccessToken = async (req, res, next) => {
   }
 };
 
-module.exports = { registerUser, loginUser, logoutUser, refreshAccessToken };
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+    // console.log(currentPassword,newPassword, confirmNewPassword);
+    if (newPassword !== confirmNewPassword) {
+      throw ApiError(400, "New password and confirm password do not match");
+    }
+    const user = await User.findById(req.user._id);
+    // console.log(user);
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    if (!user.isPasswordCorrect(currentPassword)) {
+      throw ApiError(401, "Current password is incorrect");
+    }
+
+    if (user.isPasswordCorrect(newPassword)) {
+      throw new ApiError(
+        400,
+        "New password cannot be the same as the current password"
+      );
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .clearCookie("accessToken", options)
+      .clearCookie("refreshToken", options)
+      .json(new ApiResponse(200, {}, "Password changed successfully"));
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changePassword,
+};
