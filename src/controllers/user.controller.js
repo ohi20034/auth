@@ -125,8 +125,8 @@ const logoutUser = async (req, res, next) => {
 
     return res
       .status(200)
-      .clearCookie("accessToken", options)
-      .clearCookie("refreshToken", options)
+      .clearCookie("accessToken",accessToken, options)
+      .clearCookie("refreshToken", refreshToken, options)
       .json(new ApiResponse(200, {}, "User logged Out Successfuly"));
   } catch (error) {
     next(error);
@@ -174,7 +174,7 @@ const refreshAccessToken = async (req, res, next) => {
           200,
           {
             accessToken,
-            refreshToken: newRefreshToken,a
+            refreshToken: newRefreshToken,
           },
           "Access Token refreshed Successfully"
         )
@@ -187,21 +187,20 @@ const refreshAccessToken = async (req, res, next) => {
 const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword, confirmNewPassword } = req.body;
-    // console.log(currentPassword,newPassword, confirmNewPassword);
+    console.log(currentPassword,newPassword, confirmNewPassword);
     if (newPassword !== confirmNewPassword) {
-      throw ApiError(400, "New password and confirm password do not match");
+      throw new ApiError(400, "New password and confirm password do not match");
     }
     const user = await User.findById(req.user._id);
-    // console.log(user);
     if (!user) {
       throw new ApiError(404, "User not found");
     }
 
-    if (!user.isPasswordCorrect(currentPassword)) {
-      throw ApiError(401, "Current password is incorrect");
+    if (!await user.isPasswordCorrect(currentPassword)) {
+      throw new ApiError(401, "Current password is incorrect");
     }
 
-    if (user.isPasswordCorrect(newPassword)) {
+    if (await user.isPasswordCorrect(newPassword)) {
       throw new ApiError(
         400,
         "New password cannot be the same as the current password"
@@ -218,8 +217,6 @@ const changePassword = async (req, res, next) => {
 
     return res
       .status(200)
-      .clearCookie("accessToken", options)
-      .clearCookie("refreshToken", options)
       .json(new ApiResponse(200, {}, "Password changed successfully"));
   } catch (error) {
     next(error);
