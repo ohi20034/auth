@@ -3,6 +3,8 @@ const userService = require("../services/user.service");
 const jwt = require("jsonwebtoken");
 const { ApiResponse } = require("../utils/apiResponse");
 const { ApiError } = require("../utils/apiError");
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -125,8 +127,6 @@ const logoutUser = async (req, res, next) => {
 
     return res
       .status(200)
-      .clearCookie("accessToken",accessToken, options)
-      .clearCookie("refreshToken", refreshToken, options)
       .json(new ApiResponse(200, {}, "User logged Out Successfuly"));
   } catch (error) {
     next(error);
@@ -187,7 +187,7 @@ const refreshAccessToken = async (req, res, next) => {
 const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword, confirmNewPassword } = req.body;
-    console.log(currentPassword,newPassword, confirmNewPassword);
+    console.log(currentPassword, newPassword, confirmNewPassword);
     if (newPassword !== confirmNewPassword) {
       throw new ApiError(400, "New password and confirm password do not match");
     }
@@ -196,7 +196,7 @@ const changePassword = async (req, res, next) => {
       throw new ApiError(404, "User not found");
     }
 
-    if (!await user.isPasswordCorrect(currentPassword)) {
+    if (!(await user.isPasswordCorrect(currentPassword))) {
       throw new ApiError(401, "Current password is incorrect");
     }
 
@@ -223,10 +223,108 @@ const changePassword = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    const resetUrl = `localhost:3000/api/v1/auth/reset-password/${resetToken}`;
+
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordTokenExpires = (await Date.now()) + 3600000;
+    const newUser = await user.save({ validateBeforeSave: false });
+    console.log(newUser);
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: true,
+      auth: {
+        user: process.env.USER_FOR_NODEMAILER,
+        pass: process.env.USER_PASS_NODEMAILER,
+      },
+    });
+
+    const mailOptions = {
+      from: {
+        name: "Forgot Password",
+        address: process.env.USER_FOR_NODEMAILER,
+      },
+      to: email,
+      subject: "Password Reset Request",
+      html: `<p>You are receiving this email because you (or someone else) have requested the reset of a password.</p>
+             <p>If this was not you, please ignore this email. Otherwise, click the link below to reset your password:</p>
+             <p><a href="${resetUrl}" target="_blank">Reset Password</a></p>
+             <p> ${resetUrl} </p>
+             <p>This link will expire in 1 hour.</p>`,
+    };
+
+    await transporter.sendMail(mailOptions);
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, {}, "Password reset email sent successfully.")
+      );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
+
+  console.log(token,newPassword);
+
+  try {
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    console.log(hashedToken);
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+    });
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = "";
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          {},
+          "Password reset successful. You can now log in with your new password."
+        )
+      );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   logoutUser,
   refreshAccessToken,
   changePassword,
+  forgotPassword,
+  resetPassword,
 };
