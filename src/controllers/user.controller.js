@@ -242,9 +242,9 @@ const forgotPassword = async (req, res, next) => {
       .update(resetToken)
       .digest("hex");
 
-    user.resetPasswordTokenExpires = (await Date.now()) + 3600000;
-    const newUser = await user.save({ validateBeforeSave: false });
-    console.log(newUser);
+    user.resetPasswordTokenExpires =  Date.now() + 3600000;
+    await user.save({ validateBeforeSave: false });
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       host: "smtp.gmail.com",
@@ -285,7 +285,7 @@ const resetPassword = async (req, res, next) => {
   const { token } = req.params;
   const { newPassword } = req.body;
 
-  console.log(token,newPassword);
+  console.log(token, newPassword);
 
   try {
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
@@ -298,6 +298,10 @@ const resetPassword = async (req, res, next) => {
 
     if (!user) {
       throw new ApiError(404, "User not found");
+    }
+
+    if (Date.now() > user.resetPasswordTokenExpires) {
+      throw new ApiError(400, "Reset token has expired");
     }
 
     user.password = newPassword;
