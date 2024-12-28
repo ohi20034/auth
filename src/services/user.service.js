@@ -79,3 +79,5 @@ const loginService = async (email, password) => {
     },
   };
 };
+
+module.exports = { registerUserService, loginService };

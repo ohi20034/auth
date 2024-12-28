@@ -39,7 +39,9 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    
     const { statusCode, accessToken, refreshToken, message, data } = await loginService(email, password);
+
     return res
       .status(statusCode)
       .cookie("accessToken", accessToken, cookieOptions)
