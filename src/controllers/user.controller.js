@@ -1,13 +1,17 @@
 const { User } = require("../models/user.model");
-const { registerUserService, loginService } = require("../services/user.service");
+const {
+  registerUserService,
+  loginService,
+  refreshAccessTokenService,
+  logoutService,
+} = require("../services/user.service");
+
 const jwt = require("jsonwebtoken");
 const { ApiResponse } = require("../utils/apiResponse");
 const { ApiError } = require("../utils/apiError");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
-const cookieOptions = require("../utils/cookieOptions")
-
-
+const cookieOptions = require("../utils/cookieOptions");
 
 const registerUser = async (req, res, next) => {
   try {
@@ -21,16 +25,9 @@ const registerUser = async (req, res, next) => {
       password
     );
 
-    console.log(statusCode,data,message);
-
-    return res.status(statusCode).json(
-      new ApiResponse(
-        statusCode,
-        data,
-        message
-      )
-    );
-
+    return res
+      .status(statusCode)
+      .json(new ApiResponse(statusCode, data, message));
   } catch (error) {
     next(error);
   }
@@ -39,20 +36,15 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    
-    const { statusCode, accessToken, refreshToken, message, data } = await loginService(email, password);
+
+    const { statusCode, accessToken, refreshToken, message, data } =
+      await loginService(email, password);
 
     return res
       .status(statusCode)
       .cookie("accessToken", accessToken, cookieOptions)
       .cookie("refreshToken", refreshToken, cookieOptions)
-      .json(
-        new ApiResponse(
-          statusCode,
-          data,
-          message
-        )
-      );
+      .json(new ApiResponse(statusCode, data, message));
   } catch (error) {
     next(error);
   }
@@ -60,26 +52,10 @@ const loginUser = async (req, res, next) => {
 
 const logoutUser = async (req, res, next) => {
   try {
-    await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        $set: {
-          refreshToken: "",
-        },
-      },
-      {
-        new: true,
-      }
-    );
-
-    const options = {
-      httpOnly: true,
-      secure: true,
-    };
-
+    const { statusCode, data, message } = await logoutService(req.user._id);
     return res
-      .status(200)
-      .json(new ApiResponse(200, {}, "User logged Out Successfuly"));
+      .status(statusCode)
+      .json(new ApiResponse(statusCode, data, message));
   } catch (error) {
     next(error);
   }
@@ -90,45 +66,21 @@ const refreshAccessToken = async (req, res, next) => {
     const inComingRefreshToken =
       req.cookies.refreshToken || req.body.refreshToken;
 
-    if (!inComingRefreshToken) {
-      throw new ApiError(401, "unauthorized request");
-    }
-
-    const decodedToken = jwt.verify(
-      inComingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET
-    );
-
-    const user = User.findById(decodedToken?._id);
-
-    if (!user) {
-      throw new ApiError(401, "Invalid Refresh Token");
-    }
-
-    if (inComingRefreshToken !== user?.refreshToken) {
-      throw new ApiError(401, "Refresh Token is expired or used");
-    }
-
-    const options = {
-      httpOnly: true,
-      secure: true,
-    };
-
-    const { accessToken, newRefreshToken } =
-      await generateAccessAndRefreshTokens(user._id);
+    const { statusCode, accessToken, newRefreshToken, message } =
+      await refreshAccessTokenService(inComingRefreshToken);
 
     return res
-      .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", newRefreshToken, options)
+      .status(statusCode)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", newRefreshToken, cookieOptions)
       .json(
         new ApiResponse(
-          200,
+          statusCode,
           {
             accessToken,
             refreshToken: newRefreshToken,
           },
-          "Access Token refreshed Successfully"
+          message
         )
       );
   } catch (error) {
@@ -161,11 +113,6 @@ const changePassword = async (req, res, next) => {
 
     user.password = newPassword;
     await user.save();
-
-    const options = {
-      httpOnly: true,
-      secure: true,
-    };
 
     return res
       .status(200)
@@ -208,7 +155,7 @@ const forgotPassword = async (req, res, next) => {
       },
     });
 
-    const mailOptions = {
+    const mailcookieOptions = {
       from: {
         name: "Forgot Password",
         address: process.env.USER_FOR_NODEMAILER,
@@ -222,7 +169,7 @@ const forgotPassword = async (req, res, next) => {
              <p>This link will expire in 1 hour.</p>`,
     };
 
-    await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailcookieOptions);
     return res
       .status(200)
       .json(

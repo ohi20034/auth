@@ -2,25 +2,24 @@ const { User } = require("../models/user.model");
 const { ApiError } = require("../utils/apiError");
 
 const generateAccessAndRefreshTokens = async (userId) => {
-    try {
-        const user = await User.findById(userId);
-        const accessToken = user.generateAccessToken();
-        const refreshToken = user.generateRefreshToken();
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
 
-        user.refreshToken = refreshToken;
-        await user.save({ validateBeforeSave: false });
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
 
-        return { accessToken, refreshToken };
-    } catch (error) {
-        throw new ApiError(
-            500,
-            "Something went wrong while generating refresh and access token"
-        );
-    }
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while generating refresh and access token"
+    );
+  }
 };
 
 const registerUserService = async (email, name, password) => {
-    
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
@@ -79,5 +78,60 @@ const loginService = async (email, password) => {
     },
   };
 };
+const refreshAccessTokenService = async (inComingRefreshToken) => {
+  if (!inComingRefreshToken) {
+    throw new ApiError(401, "unauthorized request");
+  }
 
-module.exports = { registerUserService, loginService };
+  const decodedToken = jwt.verify(
+    inComingRefreshToken,
+    process.env.REFRESH_TOKEN_SECRET
+  );
+
+  const user = User.findById(decodedToken?._id);
+
+  if (!user) {
+    throw new ApiError(401, "Invalid Refresh Token");
+  }
+
+  if (inComingRefreshToken !== user?.refreshToken) {
+    throw new ApiError(401, "Refresh Token is expired or used");
+  }
+
+  const { accessToken, newRefreshToken } = await generateAccessAndRefreshTokens(
+    user._id
+  );
+
+  return {
+    statusCode: 200,
+    accessToken,
+    newRefreshToken,
+    data: {},
+    message: "Access Token refreshed Successfully",
+  };
+};
+
+const logoutService = async (userId)=>{
+  await User.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        refreshToken: "",
+      },
+    },
+    {
+      new: true,
+    }
+  );
+  return {
+    statusCode: 200,
+    data: {},
+    message: "User logged Out Successfuly"
+  }
+}
+module.exports = {
+  registerUserService,
+  loginService,
+  refreshAccessTokenService,
+  logoutService
+};
