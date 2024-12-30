@@ -17,7 +17,7 @@ const registerUser = async (req, res, next) => {
   try {
     const { email, name, password } = req.body;
 
-    console.log(email, name, password);
+    // console.log(email, name, password);
 
     const { statusCode, data, message } = await registerUserService(
       email,
