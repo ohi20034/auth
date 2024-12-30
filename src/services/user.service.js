@@ -120,7 +120,7 @@ const logoutService = async (userId) => {
       },
     },
     {
-      new: true,
+      new: true, // nsures the updated document is returned
     }
   );
   return {

@@ -19,13 +19,5 @@ router.post("/refresh-token", refreshAccessToken);
 router.post("/change-password", verifyJWT, changePassword);
 router.post("/forgot-password",forgotPassword);
 router.post("/reset-password/:token", resetPassword);
-// password reset
-// profile
-// update-profile
-// delete-account
-// 
-
-// forgot-password
-// reset-password
 
 module.exports = router;
